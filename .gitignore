@@ -1,0 +1,4 @@
+/vagrant/.vagrant/
+/www/*
+!www/.gitkeep
+*.retry

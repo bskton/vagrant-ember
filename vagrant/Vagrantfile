@@ -1,0 +1,16 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+    config.vm.define "ember" do |c|
+        c.vm.box = "bskton/web"
+        c.vm.network "private_network", ip: "192.168.36.10"
+        c.vm.network "forwarded_port", guest: 4200, host: 4200
+        c.vm.network "forwarded_port", guest: 49153, host: 49153
+        c.vm.provider "virtualbox" do |vb|
+            vb.memory = "512"
+            vb.name = "ember"
+        end
+        c.vm.provision :shell, path: "bootstrap.sh"
+    end
+end

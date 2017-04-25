@@ -1,0 +1,121 @@
+- name: Install xz-utils
+  apt: name=xz-utils state=latest
+
+- name: Download Node.js
+  get_url:
+    url: https://nodejs.org/dist/v{{ node_version }}/node-v{{ node_version }}-linux-x64.tar.xz
+    dest: /home/{{ admin_user }}/node-v{{ node_version }}-linux-x64.tar.xz
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: 0750
+  register: node_download
+
+- name: Extract Node.js
+  unarchive:
+    remote_src: yes
+    src: /home/{{ admin_user }}/node-v{{ node_version }}-linux-x64.tar.xz
+    dest: /home/{{ admin_user }}
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+  when: node_download.changed
+
+- name: Create symbolic link to node
+  file:
+    src: /home/{{ admin_user }}/node-v{{ node_version }}-linux-x64/bin/node
+    dest: /usr/local/bin/node
+    state: link
+
+- name: Create symbolic link to npm
+  file:
+    src: /home/{{ admin_user }}/node-v{{ node_version }}-linux-x64/bin/npm
+    dest: /usr/local/bin/npm
+    state: link
+
+- name: Install git
+  apt: name=git state=latest
+
+- name: Install Ember CLI 2.12
+  npm:
+    name: ember-cli
+    version: '2.12'
+    global: yes
+
+- name: Create symbolic link to npm
+  file:
+    src: /home/{{ admin_user }}/node-v{{ node_version }}-linux-x64/lib/node_modules/ember-cli/bin/ember
+    dest: /usr/local/bin/ember
+    state: link
+
+# Необходим для компиляции watchman
+- name: Install autotools-dev
+  apt: name=autotools-dev state=latest
+
+# Необходим для компиляции watchman
+- name: Install automake
+  apt: name=automake state=latest
+
+# Необходим для компиляции watchman
+- name: Install python-dev
+  apt: name=python-dev state=latest
+
+- name: Check if Watchman is installed
+  stat: path=/usr/local/bin/watchman
+  register: watchman_bin
+
+- name: Create watchman directory if it doesn't exist
+  file:
+    path: /home/{{ admin_user }}/watchman
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    state: directory
+    mode: 0755
+
+- name: Pull Watchman source code
+  git:
+    repo: https://github.com/facebook/watchman.git
+    dest: /home/{{ admin_user }}/watchman
+    version: v4.7.0
+  when: not watchman_bin.stat.exists
+
+- name: Run autogen.sh
+  command: ./autogen.sh
+  args:
+    chdir: /home/{{ admin_user }}/watchman
+  when: not watchman_bin.stat.exists
+
+- name: Run configure
+  command: ./configure
+  args:
+    chdir: /home/{{ admin_user }}/watchman
+  when: not watchman_bin.stat.exists
+
+- name: Make
+  command: make
+  args:
+    chdir: /home/{{ admin_user }}/watchman
+  when: not watchman_bin.stat.exists
+
+- name: Make install
+  command: make install
+  args:
+    chdir: /home/{{ admin_user }}/watchman
+  when: not watchman_bin.stat.exists
+
+# Create www directory if it doesn't exist
+- file:
+    path: /home/{{ admin_user }}/www
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    state: directory
+    mode: 0755
+
+# Необходимо для того, чтобы работал livereload
+- name: Install samba
+  apt: name=samba state=latest
+
+- name: Set Samba user password
+  shell: (echo vagrant; echo vagrant) | smbpasswd -a vagrant
+
+- name: Copy Samba configuration
+  copy: src=smb.conf dest=/etc/samba/smb.conf owner=root group=root mode=0644
+  notify: restart samba
